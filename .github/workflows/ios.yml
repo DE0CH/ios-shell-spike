@@ -1,0 +1,40 @@
+name: ios
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: JS bundle (runs inside the extension)
+        run: npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output ios/Extension/main.jsbundle
+      - run: brew install xcodegen
+      - name: Generate project + pods
+        working-directory: ios
+        run: xcodegen generate && pod install
+      - run: xcodebuild -version && xcrun simctl list devices available | grep -i iphone | head -5
+      - name: Build + UI test on simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild test -workspace Spike.xcworkspace -scheme Host \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -resultBundlePath ../result.xcresult 2>&1 | tee ../xcodebuild.log | grep -E "error:|warning: .*Extension|Test Case|\*\* " || true
+      - name: Export attachments
+        if: always()
+        run: |
+          mkdir -p out
+          xcrun xcresulttool export attachments --path result.xcresult --output-path out || true
+          tail -c 200000 xcodebuild.log > out/xcodebuild-tail.log || true
+          grep -n "error:" xcodebuild.log | head -100 > out/errors.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results
+          path: out

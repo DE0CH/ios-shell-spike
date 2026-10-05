@@ -1,0 +1,6 @@
+node_modules/
+ios/Pods/
+ios/Spike.xcodeproj/
+ios/Spike.xcworkspace/
+ios/Extension/main.jsbundle
+ios/build/
