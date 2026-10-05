@@ -5,7 +5,11 @@ import SwiftUI
 struct SpikeConfiguration<E: SpikeUIExtension>: AppExtensionConfiguration {
     let appExtension: E
     init(_ appExtension: E) { self.appExtension = appExtension }
-    func accept(connection: NSXPCConnection) -> Bool { false }
+    func accept(connection: NSXPCConnection) -> Bool {
+        NSLog("[ext] accept(connection:) called")
+        HostLink.shared.attach(connection)
+        return true
+    }
 }
 
 protocol SpikeUIExtension: AppExtension {
@@ -24,6 +28,7 @@ struct SpikeExtensionScene<Content: View>: SpikeScene {
         PrimitiveAppExtensionScene(id: sceneID) {
             content()
         } onConnection: { connection in
+            NSLog("[ext] scene onConnection called")
             HostLink.shared.attach(connection)
             return true
         }
