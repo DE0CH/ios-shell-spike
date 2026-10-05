@@ -19,6 +19,14 @@ jobs:
         working-directory: ios
         run: xcodegen generate && pod install
       - run: xcodebuild -version && xcrun simctl list devices available | grep -i iphone | head -5
+      - name: Boot simulator + stream the extension's log
+        run: |
+          mkdir -p out
+          xcrun simctl boot "iPhone 17" || true
+          xcrun simctl bootstatus "iPhone 17" -b
+          nohup xcrun simctl spawn "iPhone 17" log stream --style compact --level debug \
+            --predicate 'process == "JarvisUI" OR (process == "Host" AND eventMessage CONTAINS[c] "xpc")' \
+            > out/ext-stream.log 2>&1 &
       - name: Build + UI test on simulator
         working-directory: ios
         run: |
@@ -37,10 +45,7 @@ jobs:
           mkdir -p out/crash
           find ~/Library/Logs/DiagnosticReports -newer package.json \( -name "*.ips" -o -name "*.crash" \) -exec cp {} out/crash/ \; 2>/dev/null || true
           ls -la out/crash || true
-          xcrun simctl spawn booted log show --last 30m --style compact \
-            --predicate 'process == "JarvisUI" OR (process == "Host" AND (subsystem CONTAINS "extension" OR eventMessage CONTAINS[c] "extension")) OR eventMessage CONTAINS "JarvisUI"' \
-            > out/sim-extension.log 2>&1 || true
-          wc -l out/sim-extension.log || true
+          wc -l out/ext-stream.log || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

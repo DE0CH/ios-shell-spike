@@ -57,10 +57,14 @@ final class SpikeUITests: XCTestCase {
         sleep(2)
         r.append("keyboard shown event: \(waitLog("kb-shown", 5)), app.keyboards=\(app.keyboards.count)")
         shot("03-keyboard")
+        var tapped: [String] = []
         for ch in ["h", "e", "l", "l", "o"] {
-            let k = app.keyboards.keys[ch]
-            if k.exists { k.tap() }
+            for label in [ch, ch.uppercased()] {
+                let k = app.keyboards.keys[label]
+                if k.exists { k.tap(); tapped.append(label); break }
+            }
         }
+        r.append("keys tapped: \(tapped.joined()); keyboard keys sample: \(app.keyboards.keys.allElementsBoundByIndex.prefix(5).map { $0.label })")
         r.append("typed via keyboard keys: \(waitLog("typed hello", 5))")
         shot("03-typed")
 
