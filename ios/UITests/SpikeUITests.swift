@@ -71,18 +71,25 @@ final class SpikeUITests: XCTestCase {
         // 4. WebView inside RN inside the extension
         r.append("webview loaded: \(waitLog("web loaded", 30))")
 
-        // 5. Enter secure mode from RN (untrusted) → shell removes the extension view
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)).tap() // dismiss keyboard area tap
+        // 5. Enter secure mode from RN (untrusted) → shell removes the extension view; animation frames
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)).tap() // tap away from the keyboard
         r.append("secure via \(tapRN("rn-secure", 0.53))")
+        for i in 0..<4 { shot("05-enter-frame-\(i)"); usleep(100_000) }
         let secure = el("secure-title").waitForExistence(timeout: 10)
-        r.append("secure mode shown: \(secure); rn still visible: \(el("rn-title").exists) extension-host: \(el("extension-host").exists)")
+        r.append("secure mode shown: \(secure); rn still in tree: \(el("rn-title").exists) extension-host: \(el("extension-host").exists)")
+        r.append("snapshot: \(hostLog.split(separator: "\n").filter { $0.contains("snapshot") }.joined(separator: " | "))")
         shot("05-secure")
         if secure {
             el("secure-done").tap()
+            for i in 0..<4 { shot("05-exit-frame-\(i)"); usleep(100_000) }
             r.append("back to normal: \(waitLog("shell exits secure mode", 5))")
             sleep(5)
             shot("05-after-secure")
-            r.append("after secure, log tail: \(hostLog.split(separator: "\n").suffix(6).joined(separator: " | "))")
+            // Is React Native's state kept across the remove/re-add of the extension view?
+            r.append("increment after secure via \(tapRN("rn-inc", 0.15))")
+            sleep(2)
+            r.append("state kept (count 2): \(hostLog.contains("ext: count 2")); reset (count 1 again): \(hostLog.components(separatedBy: "ext: count 1").count - 1 > 1)")
+            r.append("after secure, log tail: \(hostLog.split(separator: "\n").suffix(8).joined(separator: " | "))")
         }
 
         // 6. Background / foreground

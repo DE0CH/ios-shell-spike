@@ -25,7 +25,8 @@ jobs:
           set -o pipefail
           xcodebuild test -workspace Spike.xcworkspace -scheme Host \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
-            -resultBundlePath ../result.xcresult 2>&1 | tee ../xcodebuild.log | grep -E "error:|warning: .*Extension|Test Case|\*\* " || true
+            -resultBundlePath ../result.xcresult 2>&1 | tee ../xcodebuild.log | grep -E "error:|Test Case|\*\* "
+          grep -q "TEST SUCCEEDED\|TEST FAILED" ../xcodebuild.log
       - name: Export attachments
         if: always()
         run: |

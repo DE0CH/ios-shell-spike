@@ -37,6 +37,7 @@ targets:
         PRODUCT_NAME: JarvisUI
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: Extension/Info.plist
+        OTHER_LDFLAGS: ["$(inherited)", "-lc++"]
   HostUITests:
     type: bundle.ui-testing
     platform: iOS

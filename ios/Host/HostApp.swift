@@ -23,6 +23,8 @@ final class Shell {
     var mode: Mode = .normal
     var secureOptions = ""
     var identity: AppExtensionIdentity?
+    var snapshot: UIImage?
+    weak var hostVC: EXHostViewController?
     var lines: [String] = []
     private var monitor: AppExtensionPoint.Monitor?
     private let t0 = Date()
@@ -31,6 +33,43 @@ final class Shell {
         let line = String(format: "%.1f ", Date().timeIntervalSince(t0)) + s
         NSLog("[shell] %@", line)
         lines.append(line)
+    }
+
+    /// A still image of the extension's current screen, owned by the shell: shown dimmed under the secure
+    /// sheet so the switch looks seamless, while the live extension view is gone.
+    func captureSnapshot() {
+        guard let v = hostVC?.view, v.bounds.width > 0 else { log("snapshot: no host view"); snapshot = nil; return }
+        let r = UIGraphicsImageRenderer(bounds: v.bounds)
+        let img = r.image { _ in _ = v.drawHierarchy(in: v.bounds, afterScreenUpdates: false) }
+        snapshot = img
+        log("snapshot distinct colours: \(Shell.distinctColours(img))")
+    }
+
+    static func distinctColours(_ img: UIImage) -> Int {
+        let side = 24
+        var px = [UInt8](repeating: 0, count: side * side * 4)
+        guard let cg = img.cgImage,
+              let ctx = CGContext(data: &px, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return -1 }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: side, height: side))
+        var set = Set<UInt32>()
+        for i in stride(from: 0, to: px.count, by: 4) {
+            set.insert(UInt32(px[i] >> 4) << 8 | UInt32(px[i + 1] >> 4) << 4 | UInt32(px[i + 2] >> 4))
+        }
+        return set.count
+    }
+
+    func enterSecure(_ options: String) {
+        log("enter secure requested: \(options)")
+        secureOptions = options
+        captureSnapshot()
+        withAnimation(.spring(duration: 0.35)) { mode = .secure }
+    }
+
+    func exitSecure(_ why: String) {
+        log("shell exits secure mode, \(why)")
+        withAnimation(.spring(duration: 0.35)) { mode = .normal }
     }
 
     func load() async {
@@ -50,11 +89,7 @@ final class HostServiceImpl: NSObject, HostService {
     let shell: Shell
     init(shell: Shell) { self.shell = shell }
     func requestSecureMode(_ options: String) {
-        DispatchQueue.main.async { [shell] in
-            shell.log("enter secure requested: \(options)")
-            shell.secureOptions = options
-            shell.mode = .secure
-        }
+        DispatchQueue.main.async { [shell] in shell.enterSecure(options) }
     }
     func report(_ line: String) {
         DispatchQueue.main.async { [shell] in shell.log("ext: " + line) }
@@ -67,16 +102,27 @@ struct RootView: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                switch shell.mode {
-                case .normal:
+                if shell.mode == .normal {
                     if let identity = shell.identity {
                         ExtensionHost(identity: identity, shell: shell)
                             .accessibilityIdentifier("extension-host")
                     } else {
                         Text("No extension").accessibilityIdentifier("no-extension")
                     }
-                case .secure:
-                    SecureSheet(shell: shell)
+                } else {
+                    // Secure mode: a still image of the app (shell-owned pixels, no live extension), dimmed.
+                    if let img = shell.snapshot {
+                        Image(uiImage: img).resizable().ignoresSafeArea().accessibilityIdentifier("secure-backdrop")
+                    }
+                    Color.black.opacity(0.35).ignoresSafeArea().transition(.opacity)
+                    VStack {
+                        Spacer()
+                        SecureSheet(shell: shell)
+                            .frame(maxWidth: .infinity)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                            .padding(.horizontal, 8)
+                    }
+                    .transition(.move(edge: .bottom))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -108,10 +154,7 @@ struct SecureSheet: View {
             }
             .pickerStyle(.segmented)
             .accessibilityIdentifier("secure-store")
-            Button("Done (shell exits secure mode)") {
-                shell.log("shell exits secure mode, store=\(store)")
-                shell.mode = .normal
-            }
+            Button("Done (shell exits secure mode)") { shell.exitSecure("store=\(store)") }
             .accessibilityIdentifier("secure-done")
             Text("host pid \(getpid())").font(.caption)
         }
@@ -129,6 +172,7 @@ struct ExtensionHost: UIViewControllerRepresentable {
         let vc = EXHostViewController()
         vc.delegate = context.coordinator
         vc.configuration = EXHostViewController.Configuration(appExtension: identity, sceneID: "main")
+        shell.hostVC = vc
         shell.log("host view created")
         return vc
     }
