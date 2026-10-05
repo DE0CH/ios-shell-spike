@@ -92,6 +92,7 @@ final class HostServiceImpl: NSObject, HostService {
         DispatchQueue.main.async { [shell] in shell.enterSecure(options) }
     }
     func report(_ line: String) {
+        NSLog("[shell] xpc report received")
         DispatchQueue.main.async { [shell] in shell.log("ext: " + line) }
     }
 }

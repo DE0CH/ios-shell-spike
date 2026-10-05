@@ -25,7 +25,7 @@ jobs:
           xcrun simctl boot "iPhone 17" || true
           xcrun simctl bootstatus "iPhone 17" -b
           nohup xcrun simctl spawn "iPhone 17" log stream --style compact --level debug \
-            --predicate 'process == "JarvisUI" OR (process == "Host" AND eventMessage CONTAINS[c] "xpc")' \
+            --predicate 'process == "JarvisUI" OR process == "Host"' \
             > out/ext-stream.log 2>&1 &
       - name: Build + UI test on simulator
         working-directory: ios

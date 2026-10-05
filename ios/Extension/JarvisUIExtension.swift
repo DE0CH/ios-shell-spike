@@ -72,7 +72,10 @@ final class HostLink: NSObject {
     }
 
     func attach(_ c: NSXPCConnection) {
+        NSLog("[ext] attach connection %@", String(describing: c))
         c.remoteObjectInterface = NSXPCInterface(with: HostService.self)
+        c.invalidationHandler = { NSLog("[ext] connection invalidated") }
+        c.interruptionHandler = { NSLog("[ext] connection interrupted") }
         c.resume()
         connection = c
         let queued = pending
@@ -84,7 +87,8 @@ final class HostLink: NSObject {
     func report(_ s: String) { call("report", s) }
 
     func call(_ method: String, _ arg: String) {
-        guard let c = connection else { pending.append((method, arg)); return }
+        guard let c = connection else { NSLog("[ext] queued %@ (no connection yet)", method); pending.append((method, arg)); return }
+        NSLog("[ext] call %@ %@", method, arg)
         let proxy = c.remoteObjectProxyWithErrorHandler { e in NSLog("[ext] xpc error %@", String(describing: e)) } as? HostService
         if method == "secure" { proxy?.requestSecureMode(arg) } else { proxy?.report(arg) }
     }
