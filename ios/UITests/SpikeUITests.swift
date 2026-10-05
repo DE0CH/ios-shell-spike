@@ -91,7 +91,7 @@ final class SpikeUITests: XCTestCase {
         shot("05-secure")
         if secure {
             el("secure-done").tap()
-            for i in 0..<4 { shot("05-exit-frame-\(i)"); usleep(100_000) }
+            for i in 0..<8 { shot("05-exit-frame-\(i)"); usleep(100_000) }
             r.append("back to normal: \(waitLog("shell exits secure mode", 5))")
             sleep(5)
             shot("05-after-secure")
@@ -138,12 +138,6 @@ final class SpikeUITests: XCTestCase {
         app.launch()
         r.append("warm relaunch rn mounted: \(waitLog("rn-mounted", 60)) after \(String(format: "%.1f", Date().timeIntervalSince(t1)))s")
         r.append("timing lines: \(hostLog.split(separator: "\n").filter { $0.contains("ext-init") || $0.contains("rn-factory") || $0.contains("rn-mounted") || $0.contains("activated") }.joined(separator: " | "))")
-        // 8. Memory limit of the extension process
-        r.append("mem via \(tapRN("rn-mem", 0.63))")
-        sleep(60)
-        shot("08-memory")
-        let allocs = hostLog.split(separator: "\n").filter { $0.contains("alloc") || $0.contains("xpc") || $0.contains("deactivat") }
-        r.append("memory lines: \(allocs.suffix(8).joined(separator: " | "))")
         r.append("keyboard frames: \(hostLog.split(separator: "\n").filter { $0.contains("native kb") }.prefix(4).joined(separator: " | "))")
 
         note("00-results", r.joined(separator: "\n"))

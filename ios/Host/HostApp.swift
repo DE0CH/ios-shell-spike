@@ -24,6 +24,8 @@ final class Shell {
     var secureOptions = ""
     var identity: AppExtensionIdentity?
     var snapshot: UIImage?
+    /// After leaving secure mode, the snapshot stays on top of the re-added live view until it has drawn.
+    var coverWithSnapshot = false
     weak var hostVC: EXHostViewController?
     var lines: [String] = []
     private var monitor: AppExtensionPoint.Monitor?
@@ -69,7 +71,17 @@ final class Shell {
 
     func exitSecure(_ why: String) {
         log("shell exits secure mode, \(why)")
+        coverWithSnapshot = true
         withAnimation(.spring(duration: 0.35)) { mode = .normal }
+    }
+
+    func extensionDidActivate() {
+        guard coverWithSnapshot else { return }
+        // one more beat for the extension's first frame, then reveal the live view
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            self.coverWithSnapshot = false
+            self.log("snapshot cover removed")
+        }
     }
 
     func load() async {
@@ -108,6 +120,11 @@ struct RootView: View {
                         ExtensionHost(identity: identity, shell: shell)
                             .accessibilityIdentifier("extension-host")
                             .transition(.identity)
+                            .overlay {
+                                if shell.coverWithSnapshot, let img = shell.snapshot {
+                                    Image(uiImage: img).resizable().allowsHitTesting(false)
+                                }
+                            }
                     } else {
                         Text("No extension").accessibilityIdentifier("no-extension")
                     }
@@ -191,6 +208,7 @@ struct ExtensionHost: UIViewControllerRepresentable {
 
         func hostViewControllerDidActivate(_ viewController: EXHostViewController) {
             shell.log("extension activated")
+            shell.extensionDidActivate()
             do {
                 let c = try viewController.makeXPCConnection()
                 c.exportedInterface = NSXPCInterface(with: HostService.self)
