@@ -39,6 +39,16 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: Extension/Info.plist
         OTHER_LDFLAGS: ["$(inherited)", "-lc++"]
+    postBuildScripts:
+      # CocoaPods doesn't add its embed step to ExtensionKit targets: copy React.framework & co into the
+      # appex's own Frameworks folder (the extension's rpath), so only the extension process loads them.
+      - name: Embed Pods Frameworks (extension)
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          S="${PODS_ROOT}/Target Support Files/Pods-Extension/Pods-Extension-frameworks.sh"
+          if [ -f "$S" ]; then "$S"; else echo "warning: no CocoaPods frameworks script at $S"; fi
+          ls -la "${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}" || true
   HostUITests:
     type: bundle.ui-testing
     platform: iOS
