@@ -28,6 +28,16 @@ final class SpikeUITests: XCTestCase {
     }
     func el(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id] }
     /// Tap an RN element by accessibility id, else at a normalized screen position (fallback).
+    func dismissKeyboard() {
+        if app.keyboards.count > 0 {
+            for name in ["Return", "return", "Done", "done"] {
+                let b = app.keyboards.buttons[name]
+                if b.exists { b.tap(); usleep(500_000); return }
+            }
+            el("rn-title").tap()
+            usleep(500_000)
+        }
+    }
     func tapRN(_ id: String, _ dy: Double) -> String {
         let e = el(id)
         if e.waitForExistence(timeout: 2) && e.isHittable { e.tap(); return "a11y" }
@@ -92,6 +102,7 @@ final class SpikeUITests: XCTestCase {
             r.append("after secure, log tail: \(hostLog.split(separator: "\n").suffix(8).joined(separator: " | "))")
         }
 
+        dismissKeyboard()
         // 6. Background / foreground
         XCUIDevice.shared.press(.home)
         sleep(8)
@@ -100,6 +111,7 @@ final class SpikeUITests: XCTestCase {
         shot("06-resumed")
         r.append("after resume, log tail: \(hostLog.split(separator: "\n").suffix(6).joined(separator: " | "))")
 
+        dismissKeyboard()
         // 7. Auth sheet from inside the extension
         r.append("auth via \(tapRN("rn-auth", 0.58))")
         sleep(4)
@@ -119,12 +131,20 @@ final class SpikeUITests: XCTestCase {
         }
         sleep(3)
 
+        dismissKeyboard()
+        // 8b. Warm relaunch: how long until React Native is mounted again
+        app.terminate()
+        let t1 = Date()
+        app.launch()
+        r.append("warm relaunch rn mounted: \(waitLog("rn-mounted", 60)) after \(String(format: "%.1f", Date().timeIntervalSince(t1)))s")
+        r.append("timing lines: \(hostLog.split(separator: "\n").filter { $0.contains("ext-init") || $0.contains("rn-factory") || $0.contains("rn-mounted") || $0.contains("activated") }.joined(separator: " | "))")
         // 8. Memory limit of the extension process
         r.append("mem via \(tapRN("rn-mem", 0.63))")
         sleep(60)
         shot("08-memory")
         let allocs = hostLog.split(separator: "\n").filter { $0.contains("alloc") || $0.contains("xpc") || $0.contains("deactivat") }
         r.append("memory lines: \(allocs.suffix(8).joined(separator: " | "))")
+        r.append("keyboard frames: \(hostLog.split(separator: "\n").filter { $0.contains("native kb") }.prefix(4).joined(separator: " | "))")
 
         note("00-results", r.joined(separator: "\n"))
         note("99-host-log", hostLog)

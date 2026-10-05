@@ -107,13 +107,17 @@ struct RootView: View {
                     if let identity = shell.identity {
                         ExtensionHost(identity: identity, shell: shell)
                             .accessibilityIdentifier("extension-host")
+                            .transition(.identity)
                     } else {
                         Text("No extension").accessibilityIdentifier("no-extension")
                     }
                 } else {
-                    // Secure mode: a still image of the app (shell-owned pixels, no live extension), dimmed.
+                    // Secure mode: a still image of the app (shell-owned pixels, no live extension), drawn in
+                    // exactly the frame the live view had, swapped in with no crossfade, then dimmed.
                     if let img = shell.snapshot {
-                        Image(uiImage: img).resizable().ignoresSafeArea().accessibilityIdentifier("secure-backdrop")
+                        Image(uiImage: img).resizable().frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .accessibilityIdentifier("secure-backdrop")
+                            .transition(.identity)
                     }
                     Color.black.opacity(0.35).ignoresSafeArea().transition(.opacity)
                     VStack {

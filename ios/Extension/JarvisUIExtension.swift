@@ -69,6 +69,12 @@ final class HostLink: NSObject {
 
     override init() {
         super.init()
+        // Diagnose the keyboard height React Native sees (it reported 0 inside the extension).
+        NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillChangeFrameNotification, object: nil, queue: .main) { [weak self] n in
+            let end = (n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue ?? .zero
+            let win = RN.rootView.window
+            self?.report("native kb frame end=\(end) window=\(win?.bounds ?? .zero) screen=\(win?.screen.bounds ?? .zero)")
+        }
         NotificationCenter.default.addObserver(forName: Notification.Name("SpikeHostCall"), object: nil, queue: .main) { [weak self] n in
             let method = n.userInfo?["method"] as? String ?? ""
             let arg = n.userInfo?["arg"] as? String ?? ""
@@ -97,7 +103,11 @@ final class HostLink: NSObject {
         guard let c = connection else { NSLog("[ext] queued %@ (no connection yet)", method); pending.append((method, arg)); return }
         NSLog("[ext] call %@ %@", method, arg)
         let proxy = c.remoteObjectProxyWithErrorHandler { e in NSLog("[ext] xpc error %@", String(describing: e)) } as? HostService
-        if method == "secure" { proxy?.requestSecureMode(arg) } else { proxy?.report(arg) }
+        if method == "secure" {
+            // Cosmetic only: drop the keyboard before the shell swaps in its snapshot.
+            RN.rootView.window?.endEditing(true)
+            proxy?.requestSecureMode(arg)
+        } else { proxy?.report(arg) }
     }
 }
 
