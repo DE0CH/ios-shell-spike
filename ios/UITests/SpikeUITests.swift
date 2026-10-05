@@ -62,10 +62,6 @@ final class SpikeUITests: XCTestCase {
             if k.exists { k.tap() }
         }
         r.append("typed via keyboard keys: \(waitLog("typed hello", 5))")
-        if !hostLog.contains("typed hello") {
-            app.typeText("hi")
-            r.append("typed via typeText: \(waitLog("typed hi", 5))")
-        }
         shot("03-typed")
 
         // 4. WebView inside RN inside the extension
