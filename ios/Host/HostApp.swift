@@ -193,9 +193,14 @@ struct ExtensionHost: UIViewControllerRepresentable {
                 c.exportedObject = HostServiceImpl(shell: shell)
                 c.invalidationHandler = { [shell] in DispatchQueue.main.async { shell.log("xpc invalidated") } }
                 c.interruptionHandler = { [shell] in DispatchQueue.main.async { shell.log("xpc interrupted (extension died?)") } }
+                c.remoteObjectInterface = NSXPCInterface(with: ExtensionService.self)
                 c.resume()
                 connection = c
                 shell.log("xpc up")
+                let proxy = c.remoteObjectProxyWithErrorHandler { [shell] e in
+                    DispatchQueue.main.async { shell.log("hello error \(e)") }
+                } as? ExtensionService
+                proxy?.hello { [shell] answer in DispatchQueue.main.async { shell.log("hello reply: \(answer)") } }
             } catch {
                 shell.log("xpc error \(error)")
             }

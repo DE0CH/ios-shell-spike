@@ -7,3 +7,9 @@ import Foundation
     func requestSecureMode(_ options: String)
     func report(_ line: String)
 }
+
+/// Exported by the extension; the host calls `hello` right after connecting, because an XPC connection
+/// only reaches the other side when the first message is sent.
+@objc(ExtensionService) public protocol ExtensionService {
+    func hello(_ reply: @escaping (String) -> Void)
+}

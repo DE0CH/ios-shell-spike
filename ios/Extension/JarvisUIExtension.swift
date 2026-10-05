@@ -79,6 +79,8 @@ final class HostLink: NSObject {
     func attach(_ c: NSXPCConnection) {
         NSLog("[ext] attach connection %@", String(describing: c))
         c.remoteObjectInterface = NSXPCInterface(with: HostService.self)
+        c.exportedInterface = NSXPCInterface(with: ExtensionService.self)
+        c.exportedObject = ExtensionServiceImpl()
         c.invalidationHandler = { NSLog("[ext] connection invalidated") }
         c.interruptionHandler = { NSLog("[ext] connection interrupted") }
         c.resume()
@@ -97,4 +99,8 @@ final class HostLink: NSObject {
         let proxy = c.remoteObjectProxyWithErrorHandler { e in NSLog("[ext] xpc error %@", String(describing: e)) } as? HostService
         if method == "secure" { proxy?.requestSecureMode(arg) } else { proxy?.report(arg) }
     }
+}
+
+final class ExtensionServiceImpl: NSObject, ExtensionService {
+    func hello(_ reply: @escaping (String) -> Void) { reply("hello from extension pid \(getpid())") }
 }
